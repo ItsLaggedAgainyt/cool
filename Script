@@ -1,0 +1,346 @@
+-- Single LocalScript: ESP + Teleporter + Smooth Fly + Speed + Slider Label
+-- Place in StarterPlayerScripts
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Camera = workspace.CurrentCamera
+
+-- ---------- GUI ----------
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "DevESP"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+-- Main Frame
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 280, 0, 500)
+frame.Position = UDim2.new(0,20,0,50)
+frame.BackgroundColor3 = Color3.fromRGB(25,25,25)
+frame.BackgroundTransparency = 0.2
+frame.Active = true
+frame.Draggable = true
+frame.Parent = screenGui
+Instance.new("UICorner", frame).CornerRadius = UDim.new(0,10)
+
+-- Title
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1,0,0,30)
+title.BackgroundTransparency = 1
+title.Text = "ESP + Teleporter + Fly/Speed"
+title.Font = Enum.Font.GothamBold
+title.TextColor3 = Color3.new(1,1,1)
+title.TextSize = 16
+title.Parent = frame
+
+-- ---------- Helper ----------
+local function makeToggle(name, yPos)
+	local box = Instance.new("TextButton")
+	box.Size = UDim2.new(0,24,0,24)
+	box.Position = UDim2.new(0,10,0,yPos)
+	box.BackgroundColor3 = Color3.fromRGB(60,60,60)
+	box.Text = ""
+	box.Parent = frame
+	Instance.new("UICorner", box).CornerRadius = UDim.new(0,6)
+
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(0,200,0,24)
+	label.Position = UDim2.new(0,40,0,yPos)
+	label.BackgroundTransparency = 1
+	label.Text = name
+	label.Font = Enum.Font.Gotham
+	label.TextColor3 = Color3.new(1,1,1)
+	label.TextSize = 14
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.Parent = frame
+
+	return box
+end
+
+-- ---------- ESP Toggles ----------
+local enableBtn = makeToggle("Enable X-Ray", 40)
+local nameBtn   = makeToggle("Show Names", 70)
+local fillBtn   = makeToggle("Show Fill", 100)
+local colorBtn  = makeToggle("Color Picker", 130)
+
+local espEnabled = false
+local showNames = false
+local showFill = false
+local highlightColor = Color3.fromRGB(0,255,255)
+local highlights = {}
+local nameTags = {}
+
+local function toggleButton(btn,state)
+	btn.BackgroundColor3 = state and Color3.fromRGB(0,200,0) or Color3.fromRGB(60,60,60)
+end
+
+local function createHighlight(character)
+	if highlights[character] then return end
+	local h = Instance.new("Highlight")
+	h.FillTransparency = showFill and 0.5 or 1
+	h.OutlineColor = highlightColor
+	h.OutlineTransparency = 0
+	h.Parent = character
+	highlights[character] = h
+end
+
+local function removeHighlight(character)
+	if highlights[character] then
+		highlights[character]:Destroy()
+		highlights[character] = nil
+	end
+end
+
+local function createNameTag(player, character)
+	if nameTags[character] then return end
+	local head = character:FindFirstChild("Head")
+	if not head then return end
+	local tag = Instance.new("BillboardGui")
+	tag.Size = UDim2.new(0,100,0,20)
+	tag.StudsOffset = Vector3.new(0,2.5,0)
+	tag.AlwaysOnTop = true
+	tag.Parent = head
+	local nameLabel = Instance.new("TextLabel")
+	nameLabel.Size = UDim2.new(1,0,1,0)
+	nameLabel.BackgroundTransparency = 1
+	nameLabel.Text = player.Name
+	nameLabel.Font = Enum.Font.GothamBold
+	nameLabel.TextColor3 = highlightColor
+	nameLabel.TextSize = 14
+	nameLabel.Parent = tag
+	nameTags[character] = tag
+end
+
+local function removeNameTag(character)
+	if nameTags[character] then
+		nameTags[character]:Destroy()
+		nameTags[character] = nil
+	end
+end
+
+local function updateESP()
+	for _,p in ipairs(Players:GetPlayers()) do
+		if p ~= LocalPlayer and p.Character then
+			local char = p.Character
+			if espEnabled then
+				createHighlight(char)
+				if highlights[char] then
+					highlights[char].FillTransparency = showFill and 0.5 or 1
+					highlights[char].OutlineColor = highlightColor
+				end
+				if showNames then createNameTag(p,char) else removeNameTag(char) end
+			else
+				removeHighlight(char)
+				removeNameTag(char)
+			end
+		end
+	end
+end
+
+-- ESP Buttons
+enableBtn.MouseButton1Click:Connect(function()
+	espEnabled = not espEnabled
+	toggleButton(enableBtn, espEnabled)
+	updateESP()
+end)
+nameBtn.MouseButton1Click:Connect(function()
+	showNames = not showNames
+	toggleButton(nameBtn, showNames)
+	updateESP()
+end)
+fillBtn.MouseButton1Click:Connect(function()
+	showFill = not showFill
+	toggleButton(fillBtn, showFill)
+	updateESP()
+end)
+colorBtn.MouseButton1Click:Connect(function()
+	highlightColor = Color3.fromRGB(math.random(0,255),math.random(0,255),math.random(0,255))
+	updateESP()
+end)
+
+Players.PlayerAdded:Connect(function(p)
+	p.CharacterAdded:Connect(function()
+		task.wait(1)
+		updateESP()
+	end)
+end)
+Players.PlayerRemoving:Connect(function(p)
+	if p.Character then
+		removeHighlight(p.Character)
+		removeNameTag(p.Character)
+	end
+end)
+
+RunService.RenderStepped:Connect(function()
+	if espEnabled then updateESP() end
+end)
+
+-- ---------- Teleporter ----------
+local teleFrame = Instance.new("ScrollingFrame")
+teleFrame.Size = UDim2.new(1,-10,0,150)
+teleFrame.Position = UDim2.new(0,5,0,170)
+teleFrame.BackgroundTransparency = 0.3
+teleFrame.BackgroundColor3 = Color3.fromRGB(35,35,35)
+teleFrame.CanvasSize = UDim2.new(0,0,0,0)
+teleFrame.ScrollBarThickness = 6
+teleFrame.Parent = frame
+
+local listLayout = Instance.new("UIListLayout")
+listLayout.Parent = teleFrame
+listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+listLayout.Padding = UDim.new(0,2)
+
+local teleTitle = Instance.new("TextLabel")
+teleTitle.Size = UDim2.new(1,0,0,25)
+teleTitle.Position = UDim2.new(0,0,0,0)
+teleTitle.BackgroundTransparency = 1
+teleTitle.Text = "Player Teleporter"
+teleTitle.Font = Enum.Font.GothamBold
+teleTitle.TextColor3 = Color3.new(1,1,1)
+teleTitle.TextSize = 14
+teleTitle.Parent = teleFrame
+
+local function refreshTeleList()
+	for _,v in pairs(teleFrame:GetChildren()) do
+		if v:IsA("TextButton") then v:Destroy() end
+	end
+	for _,p in ipairs(Players:GetPlayers()) do
+		if p ~= LocalPlayer then
+			local btn = Instance.new("TextButton")
+			btn.Size = UDim2.new(1,-10,0,25)
+			btn.BackgroundColor3 = Color3.fromRGB(50,50,50)
+			btn.TextColor3 = Color3.new(1,1,1)
+			btn.Text = p.Name
+			btn.Font = Enum.Font.Gotham
+			btn.TextSize = 14
+			btn.Parent = teleFrame
+			Instance.new("UICorner", btn).CornerRadius = UDim.new(0,6)
+			btn.MouseButton1Click:Connect(function()
+				if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+					LocalPlayer.Character.HumanoidRootPart.CFrame = p.Character.HumanoidRootPart.CFrame + Vector3.new(0,3,0)
+				end
+			end)
+		end
+	end
+	teleFrame.CanvasSize = UDim2.new(0,0,0,listLayout.AbsoluteContentSize.Y)
+end
+
+Players.PlayerAdded:Connect(refreshTeleList)
+Players.PlayerRemoving:Connect(refreshTeleList)
+refreshTeleList()
+
+-- ---------- Fly & Speed ----------
+local flyBtn = makeToggle("Fly", 330)
+local speedSliderLabel = Instance.new("TextLabel")
+speedSliderLabel.Size = UDim2.new(0,200,0,24)
+speedSliderLabel.Position = UDim2.new(0,10,0,360)
+speedSliderLabel.BackgroundTransparency = 1
+speedSliderLabel.Text = "WalkSpeed: 50"
+speedSliderLabel.Font = Enum.Font.Gotham
+speedSliderLabel.TextColor3 = Color3.new(1,1,1)
+speedSliderLabel.TextSize = 14
+speedSliderLabel.TextXAlignment = Enum.TextXAlignment.Left
+speedSliderLabel.Parent = frame
+
+local speedSlider = Instance.new("TextButton")
+speedSlider.Size = UDim2.new(0,200,0,20)
+speedSlider.Position = UDim2.new(0,10,0,380)
+speedSlider.BackgroundColor3 = Color3.fromRGB(60,60,60)
+speedSlider.Text = ""
+speedSlider.Parent = frame
+Instance.new("UICorner", speedSlider).CornerRadius = UDim.new(0,6)
+
+-- Label under slider
+local speedInfoLabel = Instance.new("TextLabel")
+speedInfoLabel.Size = UDim2.new(0,200,0,20)
+speedInfoLabel.Position = UDim2.new(0,10,0,405)
+speedInfoLabel.BackgroundTransparency = 1
+speedInfoLabel.Text = "This is a speed change slider!"
+speedInfoLabel.Font = Enum.Font.Gotham
+speedInfoLabel.TextColor3 = Color3.fromRGB(255,255,255)
+speedInfoLabel.TextSize = 12
+speedInfoLabel.TextXAlignment = Enum.TextXAlignment.Left
+speedInfoLabel.Parent = frame
+
+-- Fly variables
+local flyEnabled = false
+local flySpeed = 50
+local hrp = nil
+local humanoid = nil
+local keys = {W=false,A=false,S=false,D=false,Space=false,Shift=false}
+
+toggleButton(flyBtn,false)
+
+flyBtn.MouseButton1Click:Connect(function()
+	flyEnabled = not flyEnabled
+	toggleButton(flyBtn,flyEnabled)
+	if flyEnabled then
+		if LocalPlayer.Character then
+			hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+			humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+			if hrp and humanoid then
+				humanoid.PlatformStand = true
+			end
+		end
+	else
+		if humanoid then humanoid.PlatformStand = false end
+		if hrp then hrp.Velocity = Vector3.new(0,0,0) end
+	end
+end)
+
+-- Speed slider drag
+local draggingSpeed = false
+speedSlider.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then draggingSpeed = true end
+end)
+speedSlider.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then draggingSpeed = false end
+end)
+speedSlider.InputChanged:Connect(function(input)
+	if draggingSpeed and input.UserInputType == Enum.UserInputType.MouseMovement then
+		local relative = math.clamp(input.Position.X - speedSlider.AbsolutePosition.X,0,speedSlider.AbsoluteSize.X)
+		flySpeed = math.floor((relative/ speedSlider.AbsoluteSize.X)*200)
+		speedSliderLabel.Text = "WalkSpeed: "..flySpeed
+		if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+			LocalPlayer.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = flySpeed
+		end
+	end
+end)
+
+-- Fly movement
+UserInputService.InputBegan:Connect(function(input)
+	if input.KeyCode == Enum.KeyCode.W then keys.W = true end
+	if input.KeyCode == Enum.KeyCode.S then keys.S = true end
+	if input.KeyCode == Enum.KeyCode.A then keys.A = true end
+	if input.KeyCode == Enum.KeyCode.D then keys.D = true end
+	if input.KeyCode == Enum.KeyCode.Space then keys.Space = true end
+	if input.KeyCode == Enum.KeyCode.LeftShift then keys.Shift = true end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+	if input.KeyCode == Enum.KeyCode.W then keys.W = false end
+	if input.KeyCode == Enum.KeyCode.S then keys.S = false end
+	if input.KeyCode == Enum.KeyCode.A then keys.A = false end
+	if input.KeyCode == Enum.KeyCode.D then keys.D = false end
+	if input.KeyCode == Enum.KeyCode.Space then keys.Space = false end
+	if input.KeyCode == Enum.KeyCode.LeftShift then keys.Shift = false end
+end)
+
+RunService.RenderStepped:Connect(function()
+	if flyEnabled and hrp then
+		local cam = Camera.CFrame
+		local move = Vector3.new()
+		if keys.W then move = move + cam.LookVector end
+		if keys.S then move = move - cam.LookVector end
+		if keys.A then move = move - cam.RightVector end
+		if keys.D then move = move + cam.RightVector end
+		if keys.Space then move = move + Vector3.new(0,1,0) end
+		if keys.Shift then move = move - Vector3.new(0,1,0) end
+		if move.Magnitude > 0 then
+			hrp.Velocity = move.Unit * flySpeed
+		else
+			hrp.Velocity = Vector3.new(0,0,0)
+		end
+	end
+end)
